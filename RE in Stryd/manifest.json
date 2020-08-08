@@ -22,7 +22,7 @@
     {
       "matches": ["https://www.stryd.com/powercenter*"],
       "all_frames": true,
-      "js": ["scripts/jquery-3.4.1.js", "scripts/content.js"]
+      "js": ["scripts/jquery-3.5.1.slim.min.js", "scripts/content.js"]
     }
   ],
 
