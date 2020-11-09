@@ -1,22 +1,85 @@
-var weight = 0.0;
-var cpRE = '0';
-var cp = '0';
-var strideLengthToggle = true;
-var cpToggle = true;
-var fprToggle = true;
-var wpkgToggle = true;
+import type {
+  REData,
+  LapData,
+  CriticalPower,
+  FormPower,
+  StoredSettings,
+} from './types';
+type Stat = [boolean, string, string, string, string];
 
-//get weight/cp from chrome settings
-chrome.storage.sync.get(
-  {
-    weight: '70',
-    cp: '0',
-    strideLengthToggle: true,
-    cpToggle: true,
-    fprToggle: true,
-    wpkgToggle: true,
-  },
-  function (items) {
+const storageDefaults: StoredSettings = {
+  weight: 70,
+  cp: 0,
+  strideLengthToggle: true,
+  cpToggle: true,
+  fprToggle: true,
+  wpkgToggle: true,
+};
+
+function calcREData(
+  criticalPower: CriticalPower,
+  formPower: FormPower,
+  weight: number,
+  [time, meters, watts, cadence]: LapData,
+): REData {
+  const cpp = Math.floor((watts / criticalPower) * 100);
+  const strideLength = ((meters / time) * 60) / cadence;
+  const re = meters / time / (watts / weight);
+  const wkg = watts / weight;
+  const fpr = formPower / watts;
+
+  return [re, cpp, strideLength, wkg, fpr];
+}
+
+function addOrCreateMainStatsNode(
+  selector: string,
+  label: string,
+  value: string,
+  valueClass = '',
+) {
+  const mainStatsContainerSelector =
+    '.ActivitySelectionInfo__SelectionInfoContainer-sc-3hapn2-0 > div';
+  const mainStatsContainerEntrySelector = mainStatsContainerSelector + ' > div';
+
+  function addMainStatsNode(label: string, value: string, valueClass = '') {
+    const templateNode = document
+      .querySelector<HTMLDivElement>(mainStatsContainerEntrySelector)!
+      .cloneNode(true) as HTMLDivElement;
+    const [valueP, labelP] = templateNode.querySelectorAll('p');
+    valueP.innerText = value;
+    valueP.classList.add(valueClass);
+    labelP.innerText = label;
+    document
+      .querySelector(mainStatsContainerSelector)!
+      .appendChild(templateNode);
+  }
+
+  const el = document.querySelector<HTMLDivElement>(selector);
+
+  if (el) {
+    el.innerText = value;
+  } else {
+    addMainStatsNode(label, value, valueClass);
+  }
+}
+
+let weight = 0.0;
+let cpRE = 0;
+let cp = 0;
+let strideLengthToggle = true;
+let cpToggle = true;
+let fprToggle = true;
+let wpkgToggle = true;
+
+const lapSelector = '.sc-fzXfQW.ldoxsf';
+const lapCellSelector = '.common__TableCell-sc-548q8v-0.jQjFcA';
+
+//get weight/cp from browser settings
+browser.storage.sync
+  .get(storageDefaults)
+  // @ts-ignore
+  .then((items: StoredSettings) => {
+    console.log('STORED SETTINGS', items);
     weight = items.weight;
     cpRE = items.cp;
     strideLengthToggle = items.strideLengthToggle;
@@ -24,15 +87,14 @@ chrome.storage.sync.get(
     fprToggle = items.fprToggle;
     wpkgToggle = items.wpkgToggle;
     //if user value for CP is not an integer or is not between 1 and 15000 then set to 0
-    if (Math.floor(cpRE) == cpRE && $.isNumeric(cpRE)) {
+    if (Math.floor(cpRE) == cpRE) {
       if (cpRE < 0 || cpRE > 1500) {
         cpRE = 0;
       }
     } else {
       cpRE = 0;
     }
-  },
-);
+  });
 
 //setups up listening for changes to moving time, distance, power at the top
 function detection() {
@@ -49,11 +111,6 @@ function detection() {
   //whenever Power changes update selection RE
   $('body').on('DOMSubtreeModified', '#powerRE', function () {
     setupSelectionRE();
-  });
-
-  //when id menu-container exists for manual or distance splits changes the lap data
-  waitForElement('#menu-container', function () {
-    setupLapRE();
   });
 
   //wait for fullscreenmodal to exist before running all RE extension setup
@@ -78,182 +135,6 @@ function detection() {
       doEverything();
     }, 1000);
   });
-}
-
-//do all work to display extension data in laps
-function setupLapRE() {
-  setTimeout(function () {
-    //check for class for added RE header, if doesn't exist add the header for both RE and CP
-    if (!$('.reLapHeaderRE')[0]) {
-      $('.LapDisplayTable__Table-t3tg80-1.dVeZVW > tr').each(function () {
-        if (!$('.reLapHeaderRE')[0]) {
-          $(this).append(
-            $('<th />', {
-              class:
-                'LapDisplayTable__HeaderCell-t3tg80-3 iGCydt reLapHeaderRE',
-              text: 'RE',
-            }),
-          );
-          if (cpToggle == true) {
-            $(this).append(
-              $('<th />', {
-                class:
-                  'LapDisplayTable__HeaderCell-t3tg80-3 iGCydt cpLapHeaderRE',
-                text: 'CP%',
-              }),
-            );
-          }
-          if (strideLengthToggle == true) {
-            $(this).append(
-              $('<th />', {
-                class:
-                  'LapDisplayTable__HeaderCell-t3tg80-3 iGCydt lenLapHeaderRE',
-                text: 'Str Len',
-              }),
-            );
-          }
-        }
-      });
-      $('.LapDisplayTable__Table-t3tg80-1.dVeZVW > thead > tr').each(
-        function () {
-          if (!$('.reLapHeaderRE')[0]) {
-            $(this).append(
-              $('<th />', {
-                class:
-                  'LapDisplayTable__HeaderCell-t3tg80-3 iGCydt reLapHeaderRE',
-                text: 'RE',
-              }),
-            );
-            if (cpToggle == true) {
-              $(this).append(
-                $('<th />', {
-                  class:
-                    'LapDisplayTable__HeaderCell-t3tg80-3 iGCydt cpLapHeaderRE',
-                  text: 'CP%',
-                }),
-              );
-            }
-            if (strideLengthToggle == true) {
-              $(this).append(
-                $('<th />', {
-                  class:
-                    'LapDisplayTable__HeaderCell-t3tg80-3 iGCydt lenLapHeaderRE',
-                  text: 'Str Len',
-                }),
-              );
-            }
-          }
-        },
-      );
-    }
-    var lapCnt = 0;
-    //check for class added for RE and CP values added to laps
-    $('.LapDisplayTable__Table-t3tg80-1.dVeZVW > tbody > tr').each(function () {
-      lapCnt = lapCnt + 1;
-      //if RE lap column doesn't exist for lap add it
-      if (!$('.lap' + lapCnt.toString() + 'REValueRE')[0]) {
-        $(this).append(
-          $('<td>', {
-            class:
-              'LapDisplayTable__Cell-t3tg80-4 lpcVYV lap' +
-              lapCnt.toString() +
-              'REValueRE',
-            text: '',
-          }),
-        );
-      }
-      //if CP lap column doesn't exist for lap add it
-      if (!$('.lap' + lapCnt.toString() + 'CPValueRE')[0] && cpToggle == true) {
-        $(this).append(
-          $('<td>', {
-            class:
-              'LapDisplayTable__Cell-t3tg80-4 lpcVYV lap' +
-              lapCnt.toString() +
-              'CPValueRE',
-            text: '',
-          }),
-        );
-      }
-      //if Str Len lap column doesn't exist for lap add it
-      if (
-        !$('.lap' + lapCnt.toString() + 'LenValueRE')[0] &&
-        strideLengthToggle == true
-      ) {
-        $(this).append(
-          $('<td>', {
-            class:
-              'LapDisplayTable__Cell-t3tg80-4 lpcVYV lap' +
-              lapCnt.toString() +
-              'LenValueRE',
-            text: '',
-          }),
-        );
-      }
-    });
-    lapCnt = 0;
-    //loop through all laps to find power, distance, and time and update RE/CP values
-    $('.LapDisplayTable__Table-t3tg80-1.dVeZVW > tbody > tr').each(function () {
-      lapCnt = lapCnt + 1;
-      var distance = 0.0;
-      var time = 0.0;
-      var watts = 0.0;
-      var cadence = 0.0;
-      var $tds = $(this).find('td');
-      (timeText = $tds.eq(1).text()),
-        (distanceText = $tds.eq(2).text()),
-        (powerText = $tds.eq(3).text());
-      cadenceText = $tds.eq(6).text();
-      if (distanceText.indexOf('km') !== -1) {
-        distance = parseFloat(distanceText.replace(' km', '')) * 1000;
-      } else if (distanceText.indexOf('mi') !== -1) {
-        distance = parseFloat(distanceText.replace(' mi', '')) * 1609.34;
-      } else if (distanceText.indexOf(' m') !== -1) {
-        distance = parseFloat(distanceText.replace(' m', ''));
-      }
-      watts = parseFloat(powerText.replace(' W', ''));
-      cpp = Math.floor((watts / cp) * 100);
-      var split = timeText.split(':');
-      if (split.length == 3) {
-        time = +split[0] * 60 * 60 + +split[1] * 60 + +split[2];
-      } else if (split.length == 2) {
-        time = +split[0] * 60 + +split[1];
-      } else {
-        time = +split[0];
-      }
-      cadence = parseFloat(cadenceText.replace(' spm', ''));
-      var strideLength = ((distance / time) * 60) / cadence;
-      var RE = distance / time / (watts / weight);
-      if (RE > 0) {
-        if ($('.lap' + lapCnt.toString() + 'REValueRE')[0]) {
-          $('.lap' + lapCnt.toString() + 'REValueRE').text(RE.toFixed(3));
-        } else {
-          $('.lap' + lapCnt.toString() + 'REValueRE').text('N/A');
-        }
-        if (
-          $('.lap' + lapCnt.toString() + 'CPValueRE')[0] &&
-          cpToggle == true
-        ) {
-          $('.lap' + lapCnt.toString() + 'CPValueRE').text(cpp.toString());
-        } else if (cpToggle == true) {
-          $('.lap' + lapCnt.toString() + 'CPValueRE').text('N/A');
-        }
-        if (
-          $('.lap' + lapCnt.toString() + 'LenValueRE')[0] &&
-          strideLengthToggle == true
-        ) {
-          $('.lap' + lapCnt.toString() + 'LenValueRE').text(
-            strideLength.toFixed(2) + ' m',
-          );
-        } else if (strideLengthToggle == true) {
-          $('.lap' + lapCnt.toString() + 'LenValueRE').text('N/A');
-        }
-      }
-    });
-    //required to setup wait again for menu-container id
-    waitForElement('#menu-container', function () {
-      setupLapRE();
-    });
-  }, 1000);
 }
 
 //adds classes to specific elements so that we can find and update elements easier
@@ -302,19 +183,10 @@ function addClasses() {
 //do all work to display extension data in at the top of run
 function setupSelectionRE() {
   setTimeout(function () {
-    var time = 0;
-    var distance = 0;
-    var watts = 0;
-    var cadence = 0;
-    var formPower = 0;
-    var distanceText;
-    var timeText;
-    var powerText;
-    var cadenceText;
-    var formPowerText;
-    cpp = 0;
-    timeText = $('.movingTimeRE').text().replace('Moving Time', '');
-    var split = timeText.split(':');
+    let time = 0;
+    let meters = 0;
+    const timeText = $('.movingTimeRE').text().replace('Moving Time', '');
+    const split = timeText.split(':');
     if (split.length == 3) {
       time = +split[0] * 60 * 60 + +split[1] * 60 + +split[2];
     } else if (split.length == 2) {
@@ -322,160 +194,87 @@ function setupSelectionRE() {
     } else {
       time = +split[0];
     }
-    distanceText = $('.distanceRE').text().replace('Distance', '');
-    if (distanceText.indexOf('km') !== -1) {
-      distance = parseFloat(distanceText.replace(' km', '')) * 1000;
-    } else if (distanceText.indexOf('mi') !== -1) {
-      distance = parseFloat(distanceText.replace(' mi', '')) * 1609.34;
-    } else if (distanceText.indexOf(' m') !== -1) {
-      distance = parseFloat(distanceText.replace(' m', ''));
+    const metersText = $('.distanceRE').text().replace('Distance', '');
+    if (metersText.indexOf('km') !== -1) {
+      meters = parseFloat(metersText.replace(' km', '')) * 1000;
+    } else if (metersText.indexOf('mi') !== -1) {
+      meters = parseFloat(metersText.replace(' mi', '')) * 1609.34;
+    } else if (metersText.indexOf(' m') !== -1) {
+      meters = parseFloat(metersText.replace(' m', ''));
     }
-    powerText = $('#powerRE').text().replace('Power', '');
-    cadenceText = $('#cadenceRE').text().replace('Cadence', '');
-    formPowerText = $('#formPowerRE').text().replace('Form Power', '');
-    watts = parseFloat(powerText.replace(' W', ''));
-    cpp = Math.floor((watts / cp) * 100);
-    cadence = parseFloat(cadenceText.replace(' spm', ''));
-    formPower = parseFloat(formPowerText.replace(' W', ''));
-    var strideLength = ((distance / time) * 60) / cadence;
-    var RE = distance / time / (watts / weight);
-    var WPkg = watts / weight;
-    var fpr = formPower / watts;
-    if (RE > 0) {
-      if ($('.reSelectionRE')[0]) {
-        $('.reValueSelectionRE').text(RE.toFixed(3));
-      } else {
-        $(
-          '.ActivitySelectionInfo__SelectionInfoContainer-sc-3hapn2-0 > div',
-        ).each(function () {
-          var newdiv = $('<div>', {
-            class:
-              'ActivitySelectionInfo__StatContainer-sc-3hapn2-1 hNZcro reSelectionRE',
-          });
-          $(
-            "<p class='ActivitySelectionInfo__StatText-sc-3hapn2-3 jAjnpu reValueSelectionRE'>" +
-              RE.toFixed(3) +
-              '</p>',
-          ).appendTo(newdiv);
-          $(
-            "<p class='ActivitySelectionInfo__StatTitle-sc-3hapn2-2 ergGRW'>RE</p>",
-          ).appendTo(newdiv);
-          $(this).append(newdiv);
-        });
-      }
-    }
-    if (cpp > 0 && cpToggle == true) {
-      if ($('.cpSelectionRE')[0]) {
-        $('.cpValueSelectionRE').text(cpp.toString() + ' %');
-      } else {
-        $(
-          '.ActivitySelectionInfo__SelectionInfoContainer-sc-3hapn2-0 > div',
-        ).each(function () {
-          var newdiv = $('<div>', {
-            class:
-              'ActivitySelectionInfo__StatContainer-sc-3hapn2-1 hNZcro cpSelectionRE',
-          });
-          $(
-            "<p class='ActivitySelectionInfo__StatText-sc-3hapn2-3 jAjnpu cpValueSelectionRE'>" +
-              cpp.toString() +
-              ' %</p>',
-          ).appendTo(newdiv);
-          $(
-            "<p class='ActivitySelectionInfo__StatTitle-sc-3hapn2-2 ergGRW'>CP</p>",
-          ).appendTo(newdiv);
-          $(this).append(newdiv);
-        });
-      }
-    }
-    if (strideLength > 0 && strideLengthToggle == true) {
-      if ($('.lenSelectionRE')[0]) {
-        $('.lenValueSelectionRE').text(strideLength.toFixed(2) + ' m');
-      } else {
-        $(
-          '.ActivitySelectionInfo__SelectionInfoContainer-sc-3hapn2-0 > div',
-        ).each(function () {
-          var newdiv = $('<div>', {
-            class:
-              'ActivitySelectionInfo__StatContainer-sc-3hapn2-1 hNZcro lenSelectionRE',
-          });
-          $(
-            "<p class='ActivitySelectionInfo__StatText-sc-3hapn2-3 jAjnpu lenValueSelectionRE'>" +
-              strideLength.toFixed(2) +
-              ' m</p>',
-          ).appendTo(newdiv);
-          $(
-            "<p class='ActivitySelectionInfo__StatTitle-sc-3hapn2-2 ergGRW'>Str Len</p>",
-          ).appendTo(newdiv);
-          $(this).append(newdiv);
-        });
-      }
-    }
-    if (WPkg > 0 && wpkgToggle == true) {
-      if ($('.wpkgSelectionRE')[0]) {
-        $('.wpkgValueSelectionRE').text(WPkg.toFixed(2));
-      } else {
-        $(
-          '.ActivitySelectionInfo__SelectionInfoContainer-sc-3hapn2-0 > div',
-        ).each(function () {
-          var newdiv = $('<div>', {
-            class:
-              'ActivitySelectionInfo__StatContainer-sc-3hapn2-1 hNZcro wpkgSelectionRE',
-          });
-          $(
-            "<p class='ActivitySelectionInfo__StatText-sc-3hapn2-3 jAjnpu wpkgValueSelectionRE'>" +
-              WPkg.toFixed(2) +
-              '</p>',
-          ).appendTo(newdiv);
-          $(
-            "<p class='ActivitySelectionInfo__StatTitle-sc-3hapn2-2 ergGRW'>W/kg</p>",
-          ).appendTo(newdiv);
-          $(this).append(newdiv);
-        });
-      }
-    }
-    if (fpr > 0 && fprToggle == true) {
-      if ($('.fprSelectionRE')[0]) {
-        $('.fprValueSelectionRE').text(fpr.toFixed(2));
-      } else {
-        $(
-          '.ActivitySelectionInfo__SelectionInfoContainer-sc-3hapn2-0 > div',
-        ).each(function () {
-          var newdiv = $('<div>', {
-            class:
-              'ActivitySelectionInfo__StatContainer-sc-3hapn2-1 hNZcro fprSelectionRE',
-          });
-          $(
-            "<p class='ActivitySelectionInfo__StatText-sc-3hapn2-3 jAjnpu fprValueSelectionRE'>" +
-              fpr.toFixed(2) +
-              '</p>',
-          ).appendTo(newdiv);
-          $(
-            "<p class='ActivitySelectionInfo__StatTitle-sc-3hapn2-2 ergGRW'>FPR</p>",
-          ).appendTo(newdiv);
-          $(this).append(newdiv);
-        });
-      }
-    }
-    //required to setup wait again for menu-container id, was losing after manual selection
-    waitForElement('#menu-container', function () {
-      setupLapRE();
-    });
+    const powerText = $('#powerRE').text().replace('Power', '');
+    const cadenceText = $('#cadenceRE').text().replace('Cadence', '');
+    const formPowerText = $('#formPowerRE').text().replace('Form Power', '');
+    const watts = parseFloat(powerText.replace(' W', ''));
+    const cadence = parseFloat(cadenceText.replace(' spm', ''));
+    const formPower = parseFloat(formPowerText.replace(' W', ''));
+
+    const [RE, cpp, strideLength, WPkg, fpr] = calcREData(
+      cp,
+      formPower,
+      weight,
+      [time, meters, watts, cadence],
+    );
+    const reStat: Stat = [
+      !!RE,
+      '.reValueSelectionRE',
+      'RE',
+      RE.toFixed(3),
+      'reValueSelectionRE',
+    ];
+    const cppStat: Stat = [
+      !!cpp && cpToggle,
+      '.cpValueSelectionRE',
+      'CP',
+      `${cpp} %`,
+      'cpValueSelectionRE',
+    ];
+    const strideStat: Stat = [
+      !!strideLength && strideLengthToggle,
+      '.lenValueSelectionRE',
+      'Str Len',
+      `${strideLength.toFixed(2)} m`,
+      'lenValueSelectionRE',
+    ];
+    const wpkgStat: Stat = [
+      !!WPkg && wpkgToggle,
+      '.wpkgValueSelectionRE',
+      'W/kg',
+      WPkg.toFixed(2),
+      'wpkgValueSelectionRE',
+    ];
+    const fprStat: Stat = [
+      !!fpr && fprToggle,
+      '.fprValueSelectionRE',
+      'FPR',
+      fpr.toFixed(2),
+      'fprValueSelectionRE',
+    ];
+    const stats: Stat[] = [reStat, cppStat, strideStat, wpkgStat, fprStat];
+
+    stats.forEach(([on, ...rest]) => on && addOrCreateMainStatsNode(...rest));
   }, 1000);
 }
 
 function getCPForRun() {
   if (cpRE == 0) {
-    cp = $('.label-line-text').text();
+    const rawBrowserValue = $('.label-line-text').text();
+    const browserValue = parseInt(
+      rawBrowserValue.toString().replace('CP ', '').replace(' W', ''),
+    );
+    cp = browserValue;
   }
   //if extension setting for RE is not 0 then use that value
   else {
     cp = cpRE;
   }
-  cp = parseInt(cp.toString().replace('CP ', '').replace(' W', ''));
 }
 
 //function used to wait for an element to exist
-function waitForElement(elementPath, callBack) {
+function waitForElement(
+  elementPath: string,
+  callBack: (s: string, f: any) => any,
+) {
   window.setTimeout(function () {
     if ($(elementPath).length) {
       callBack(elementPath, $(elementPath));
@@ -486,7 +285,10 @@ function waitForElement(elementPath, callBack) {
 }
 
 //function used to wait for an element to not exist
-function waitForElementNotExist(elementPath, callBack) {
+function waitForElementNotExist(
+  elementPath: string,
+  callBack: (s: string, f: any) => any,
+) {
   window.setTimeout(function () {
     if (!$(elementPath).length) {
       callBack(elementPath, $(elementPath));
@@ -500,7 +302,6 @@ function waitForElementNotExist(elementPath, callBack) {
 function doEverything() {
   getCPForRun();
   addClasses();
-  setupLapRE();
   setupSelectionRE();
 }
 
