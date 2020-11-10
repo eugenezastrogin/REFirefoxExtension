@@ -7,6 +7,18 @@ import type {
 } from './types';
 type Stat = [boolean, string, string, string, string];
 
+let weight = 0.0;
+let cpRE = 0;
+let cp = 0;
+let strideLengthToggle = true;
+let cpToggle = true;
+let fprToggle = true;
+let wpkgToggle = true;
+
+let observers: (() => void)[] = [];
+
+// const lapSelector = '.sc-fzXfQW.ldoxsf';
+// const lapCellSelector = '.common__TableCell-sc-548q8v-0.jQjFcA';
 const storageDefaults: StoredSettings = {
   weight: 70,
   cp: 0,
@@ -15,6 +27,19 @@ const storageDefaults: StoredSettings = {
   fprToggle: true,
   wpkgToggle: true,
 };
+const debounceEvent = (
+  callback: () => void,
+  delay = 100,
+) => () => {
+  let interval: NodeJS.Timeout;
+  clearTimeout(interval!);
+  interval = setTimeout(() => {
+    callback();
+  }, delay);
+};
+const setupSelectionRE = debounceEvent(_setupSelectionRE);
+
+// Functions
 
 function calcREData(
   criticalPower: CriticalPower,
@@ -63,250 +88,214 @@ function addOrCreateMainStatsNode(
   }
 }
 
-let weight = 0.0;
-let cpRE = 0;
-let cp = 0;
-let strideLengthToggle = true;
-let cpToggle = true;
-let fprToggle = true;
-let wpkgToggle = true;
-
-const lapSelector = '.sc-fzXfQW.ldoxsf';
-const lapCellSelector = '.common__TableCell-sc-548q8v-0.jQjFcA';
-
 //get weight/cp from browser settings
 browser.storage.sync
   .get(storageDefaults)
   // @ts-ignore
   .then((items: StoredSettings) => {
-    console.log('STORED SETTINGS', items);
     weight = items.weight;
     cpRE = items.cp;
     strideLengthToggle = items.strideLengthToggle;
     cpToggle = items.cpToggle;
     fprToggle = items.fprToggle;
     wpkgToggle = items.wpkgToggle;
-    //if user value for CP is not an integer or is not between 1 and 15000 then set to 0
-    if (Math.floor(cpRE) == cpRE) {
-      if (cpRE < 0 || cpRE > 1500) {
-        cpRE = 0;
-      }
-    } else {
+    // if user value for CP is not between 1 and 15000 then set to 0
+    if (cpRE < 0 || cpRE > 1500) {
       cpRE = 0;
     }
   });
 
-//setups up listening for changes to moving time, distance, power at the top
+function getSelectionMetrics() {
+  const selectionDataSelector =
+    '.MetricDisplayChartToggle__DataValue-sc-1ht865t-2.huoJmS';
+  const runContainerEntrySelector =
+    '.ActivitySelectionInfo__StatText-sc-3hapn2-3.jAjnpu';
+  const coloredStats = document.querySelectorAll(selectionDataSelector);
+  const topStats = document.querySelectorAll(runContainerEntrySelector);
+  const [powerNode, , , cadenceNode, , formPowerNode] = [...coloredStats];
+  // Sample output:
+  // [ "251 W", "5:26 /km", "142 m", "183 spm", "138 bpm", "71 W", "255 ms", "12.5 kN/m", "5.87 cm", "2 %" ]
+
+  const [movingTimeNode, distanceNode] = [...topStats];
+  const trackedNodes = [
+    powerNode,
+    cadenceNode,
+    formPowerNode,
+    movingTimeNode,
+    distanceNode,
+  ];
+  const [
+    rawPower,
+    rawCadence,
+    rawFormPower,
+    rawMovingTime,
+    rawDistance,
+  ] = trackedNodes.map(n => n.innerHTML);
+  const watts = parseFloat(rawPower.replace('Power', '').replace(' W', ''));
+  const cadence = parseFloat(
+    rawCadence.replace('Cadence', '').replace(' spm', ''),
+  );
+  const formPower = parseFloat(
+    rawFormPower.replace('Form Power', '').replace(' W', ''),
+  );
+
+  let meters = 0;
+  const metersText = rawDistance.replace('Distance', '');
+  if (metersText.indexOf('km') !== -1) {
+    meters = parseFloat(metersText.replace(' km', '')) * 1000;
+  } else if (metersText.indexOf('mi') !== -1) {
+    meters = parseFloat(metersText.replace(' mi', '')) * 1609.34;
+  } else if (metersText.indexOf(' m') !== -1) {
+    meters = parseFloat(metersText.replace(' m', ''));
+  }
+
+  let movingTime;
+  const timeText = rawMovingTime.replace('Moving Time', '');
+  const split = timeText.split(':');
+  if (split.length == 3) {
+    movingTime = +split[0] * 60 * 60 + +split[1] * 60 + +split[2];
+  } else if (split.length == 2) {
+    movingTime = +split[0] * 60 + +split[1];
+  } else {
+    movingTime = +split[0];
+  }
+
+  return [
+    [movingTime, meters, watts, cadence, formPower],
+    trackedNodes,
+  ] as const;
+}
+
 function detection() {
-  //whenever Moving Time changes update selection RE
-  $('body').on('DOMSubtreeModified', '.movingTimeRE', function () {
+  // wait for fullscreenmodal to exist before running all RE extension setup
+  const runContainerSelector = '.AnalysisPage__AnalysisContainer-sc-3lhrby-0';
+  waitForElement(runContainerSelector, () => {
     setupSelectionRE();
-  });
-
-  //whenever Distance changes update selection RE
-  $('body').on('DOMSubtreeModified', '.distanceRE', function () {
-    setupSelectionRE();
-  });
-
-  //whenever Power changes update selection RE
-  $('body').on('DOMSubtreeModified', '#powerRE', function () {
-    setupSelectionRE();
-  });
-
-  //wait for fullscreenmodal to exist before running all RE extension setup
-  waitForElement('.FullScreenModal__ModalContainer-sc-1x1pf1f-0', function () {
-    setTimeout(function () {
-      doEverything();
-      //after setup now wait for the modal container to not exist and when it doesn't setup detection again
-      waitForElementNotExist(
-        '.FullScreenModal__ModalContainer-sc-1x1pf1f-0',
-        function () {
-          setTimeout(function () {
-            detection();
-          }, 1000);
-        },
-      );
-    }, 1000);
-  });
-
-  //wait for analysispage container to exist before running all RE extension setup
-  waitForElement('.AnalysisPage__AnalysisContainer-sc-3lhrby-0', function () {
-    setTimeout(function () {
-      doEverything();
-    }, 1000);
+    waitForElementNotExist(runContainerSelector, detection);
   });
 }
 
-//adds classes to specific elements so that we can find and update elements easier
-function addClasses() {
-  setTimeout(function () {
-    //add a class to the Moving Time and Distance values at top of page to track changes easier
-    $(
-      '.ActivitySelectionInfo__SelectionInfoContainer-sc-3hapn2-0 > div > div',
-    ).each(function () {
-      if ($(this).is(':contains("Moving Time")')) {
-        $(this).addClass('movingTimeRE');
-      }
-      if ($(this).is(':contains("Distance")')) {
-        $(this).addClass('distanceRE');
-      }
-    });
-    //add a id to the Power values at top of page to track changes easier
-    $('.MetricDisplayChartToggle__MetricContainer-sc-1ht865t-0').each(
-      function () {
-        if (
-          $(this).is(':contains("Power")') &&
-          $(this).is(':not(:contains("Form"))') &&
-          $(this).is(':not(:contains("Air"))')
-        ) {
-          $(this).attr('id', 'powerRE');
-        }
-      },
-    );
-    $('.MetricDisplayChartToggle__MetricContainer-sc-1ht865t-0').each(
-      function () {
-        if ($(this).is(':contains("Cadence")')) {
-          $(this).attr('id', 'cadenceRE');
-        }
-      },
-    );
-    $('.MetricDisplayChartToggle__MetricContainer-sc-1ht865t-0').each(
-      function () {
-        if ($(this).is(':contains("Form Power")')) {
-          $(this).attr('id', 'formPowerRE');
-        }
-      },
-    );
-  }, 1000);
-}
+// do all work to display extension data in at the top of run
+function _setupSelectionRE() {
+  observers.forEach(o => o());
+  getCPForRun();
+  const [
+    [movingTime, meters, watts, cadence, formPower],
+    trackedNodes,
+  ] = getSelectionMetrics();
 
-//do all work to display extension data in at the top of run
-function setupSelectionRE() {
-  setTimeout(function () {
-    let time = 0;
-    let meters = 0;
-    const timeText = $('.movingTimeRE').text().replace('Moving Time', '');
-    const split = timeText.split(':');
-    if (split.length == 3) {
-      time = +split[0] * 60 * 60 + +split[1] * 60 + +split[2];
-    } else if (split.length == 2) {
-      time = +split[0] * 60 + +split[1];
-    } else {
-      time = +split[0];
-    }
-    const metersText = $('.distanceRE').text().replace('Distance', '');
-    if (metersText.indexOf('km') !== -1) {
-      meters = parseFloat(metersText.replace(' km', '')) * 1000;
-    } else if (metersText.indexOf('mi') !== -1) {
-      meters = parseFloat(metersText.replace(' mi', '')) * 1609.34;
-    } else if (metersText.indexOf(' m') !== -1) {
-      meters = parseFloat(metersText.replace(' m', ''));
-    }
-    const powerText = $('#powerRE').text().replace('Power', '');
-    const cadenceText = $('#cadenceRE').text().replace('Cadence', '');
-    const formPowerText = $('#formPowerRE').text().replace('Form Power', '');
-    const watts = parseFloat(powerText.replace(' W', ''));
-    const cadence = parseFloat(cadenceText.replace(' spm', ''));
-    const formPower = parseFloat(formPowerText.replace(' W', ''));
+  const [RE, cpp, strideLength, WPkg, fpr] = calcREData(cp, formPower, weight, [
+    movingTime,
+    meters,
+    watts,
+    cadence,
+  ]);
+  const reStat: Stat = [
+    !!RE,
+    '.reValueSelectionRE',
+    'RE',
+    RE.toFixed(3),
+    'reValueSelectionRE',
+  ];
+  const cppStat: Stat = [
+    !!cpp && cpToggle,
+    '.cpValueSelectionRE',
+    'CP',
+    `${cpp} %`,
+    'cpValueSelectionRE',
+  ];
+  const strideStat: Stat = [
+    !!strideLength && strideLengthToggle,
+    '.lenValueSelectionRE',
+    'Str Len',
+    `${strideLength.toFixed(2)} m`,
+    'lenValueSelectionRE',
+  ];
+  const wpkgStat: Stat = [
+    !!WPkg && wpkgToggle,
+    '.wpkgValueSelectionRE',
+    'W/kg',
+    WPkg.toFixed(2),
+    'wpkgValueSelectionRE',
+  ];
+  const fprStat: Stat = [
+    !!fpr && fprToggle,
+    '.fprValueSelectionRE',
+    'FPR',
+    fpr.toFixed(2),
+    'fprValueSelectionRE',
+  ];
+  const stats: Stat[] = [reStat, cppStat, strideStat, wpkgStat, fprStat];
+  console.log(stats);
 
-    const [RE, cpp, strideLength, WPkg, fpr] = calcREData(
-      cp,
-      formPower,
-      weight,
-      [time, meters, watts, cadence],
-    );
-    const reStat: Stat = [
-      !!RE,
-      '.reValueSelectionRE',
-      'RE',
-      RE.toFixed(3),
-      'reValueSelectionRE',
-    ];
-    const cppStat: Stat = [
-      !!cpp && cpToggle,
-      '.cpValueSelectionRE',
-      'CP',
-      `${cpp} %`,
-      'cpValueSelectionRE',
-    ];
-    const strideStat: Stat = [
-      !!strideLength && strideLengthToggle,
-      '.lenValueSelectionRE',
-      'Str Len',
-      `${strideLength.toFixed(2)} m`,
-      'lenValueSelectionRE',
-    ];
-    const wpkgStat: Stat = [
-      !!WPkg && wpkgToggle,
-      '.wpkgValueSelectionRE',
-      'W/kg',
-      WPkg.toFixed(2),
-      'wpkgValueSelectionRE',
-    ];
-    const fprStat: Stat = [
-      !!fpr && fprToggle,
-      '.fprValueSelectionRE',
-      'FPR',
-      fpr.toFixed(2),
-      'fprValueSelectionRE',
-    ];
-    const stats: Stat[] = [reStat, cppStat, strideStat, wpkgStat, fprStat];
-
-    stats.forEach(([on, ...rest]) => on && addOrCreateMainStatsNode(...rest));
-  }, 1000);
+  stats.forEach(([on, ...rest]) => on && addOrCreateMainStatsNode(...rest));
+  observers = trackedNodes.map(n => onElementChange(n, setupSelectionRE));
 }
 
 function getCPForRun() {
-  if (cpRE == 0) {
-    const rawBrowserValue = $('.label-line-text').text();
-    const browserValue = parseInt(
-      rawBrowserValue.toString().replace('CP ', '').replace(' W', ''),
-    );
-    cp = browserValue;
-  }
-  //if extension setting for RE is not 0 then use that value
-  else {
+  const cpSelector = '.label-line-text';
+  if (cpRE === 0) {
+    const rawBrowserValue = document
+      .querySelector<SVGTextElement>(cpSelector)!
+      .innerHTML.replace('CP ', '')
+      .replace(' W', '');
+    cp = parseInt(rawBrowserValue);
+  } else {
+    // if extension setting for RE is not 0 then use that value
     cp = cpRE;
   }
 }
 
-//function used to wait for an element to exist
-function waitForElement(
-  elementPath: string,
-  callBack: (s: string, f: any) => any,
-) {
-  window.setTimeout(function () {
-    if ($(elementPath).length) {
-      callBack(elementPath, $(elementPath));
-    } else {
-      waitForElement(elementPath, callBack);
+function waitForElement(selector: string, callBack: () => void) {
+  const observer = new MutationObserver(function (_, me) {
+    const el = document.querySelector(selector);
+    if (el) {
+      callBack();
+      me.disconnect(); // stop observing
+      return;
     }
-  }, 500);
+  });
+
+  // start observing
+  observer.observe(document, {
+    childList: true,
+    subtree: true,
+  });
 }
 
-//function used to wait for an element to not exist
-function waitForElementNotExist(
-  elementPath: string,
-  callBack: (s: string, f: any) => any,
-) {
-  window.setTimeout(function () {
-    if (!$(elementPath).length) {
-      callBack(elementPath, $(elementPath));
-    } else {
-      waitForElementNotExist(elementPath, callBack);
+function waitForElementNotExist(selector: string, callBack: () => void) {
+  const observer = new MutationObserver(function (_, me) {
+    const el = document.querySelector(selector);
+    if (!el) {
+      callBack();
+      me.disconnect(); // stop observing
+      return;
     }
-  }, 500);
+  });
+
+  // start observing
+  observer.observe(document, {
+    childList: true,
+    subtree: true,
+  });
 }
 
-//function that just does all the things
-function doEverything() {
-  getCPForRun();
-  addClasses();
-  setupSelectionRE();
+function onElementChange(targetNode: Node, callBack: () => void) {
+  console.log('watching', targetNode);
+  const observer = new MutationObserver(() => {
+    console.log('Change!', targetNode);
+    callBack();
+  });
+
+  // start observing
+  const config = {
+    characterData: true,
+    attributes: false,
+    childList: false,
+    subtree: true,
+  };
+  observer.observe(targetNode, config);
+  return () => observer.disconnect();
 }
 
-//wait for page ready and setup detection and then do everything
-$(document).ready(function () {
-  detection();
-  doEverything();
-});
+detection();
