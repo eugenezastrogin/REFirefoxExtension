@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "removeComments": true,
+    "lib": ["es2017", "dom", "dom.iterable"],
+    "outDir": "./firefox/scripts/",
+    "strict": true
+  },
+  "include": ["./firefox/src/*"]
+}
