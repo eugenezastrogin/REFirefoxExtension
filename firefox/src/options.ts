@@ -10,59 +10,56 @@ const storageDefaults: StoredSettings = {
 };
 
 function save_options() {
-  // @ts-ignore
-  const weight = document.getElementById('weight').value;
-  // @ts-ignore
-  const cp = document.getElementById('cp').value;
-  // @ts-ignore
-  const strideLengthToggle = document.getElementById('strideLengthToggle').checked;
-  // @ts-ignore
-  const cpToggle = document.getElementById('cpToggle').checked;
-  // @ts-ignore
-  const fprToggle = document.getElementById('fprToggle').checked;
-  // @ts-ignore
-  const wpkgToggle = document.getElementById('wpkgToggle').checked;
-  browser.storage.sync.set(
-    {
-      weight: weight,
-      cp: cp,
-      strideLengthToggle: strideLengthToggle,
-      cpToggle: cpToggle,
-      fprToggle: fprToggle,
-      wpkgToggle: wpkgToggle,
-    },
-    // @ts-ignore
-    function () {
+  const weight = +(document.getElementById('weight') as HTMLInputElement).value;
+  const cp = +(document.getElementById('cp') as HTMLInputElement).value;
+  const strideLengthToggle = (document.getElementById(
+    'strideLengthToggle',
+  ) as HTMLInputElement).checked;
+  const cpToggle = (document.getElementById('cpToggle') as HTMLInputElement)
+    .checked;
+  const fprToggle = (document.getElementById('fprToggle') as HTMLInputElement)
+    .checked;
+  const wpkgToggle = (document.getElementById('wpkgToggle') as HTMLInputElement)
+    .checked;
+  browser.storage.sync
+    .set({
+      weight,
+      cp,
+      strideLengthToggle,
+      cpToggle,
+      fprToggle,
+      wpkgToggle,
+    })
+    .then(() => {
       // Update status to let user know options were saved.
-      const status = document.getElementById('status');
-      // @ts-ignore
+      const status = document.getElementById('status') as HTMLDivElement;
       status.textContent = 'Options saved.';
       setTimeout(function () {
-        // @ts-ignore
         status.textContent = '';
       }, 750);
-    },
-  );
+    });
 }
 
 // Restores select box and checkbox state using the preferences
-// stored in chrome.storage.
+// stored in browser.storage.
 function restore_options() {
-    // @ts-ignore
+  // @ts-ignore
   browser.storage.sync.get(storageDefaults).then((items: StoredSettings) => {
-    // @ts-ignore
-    document.getElementById('weight').value = items.weight;
-    // @ts-ignore
-    document.getElementById('cp').value = items.cp;
-    // @ts-ignore
-    document.getElementById('strideLengthToggle').checked =
-      items.strideLengthToggle;
-    // @ts-ignore
-    document.getElementById('cpToggle').checked = items.cpToggle;
-    // @ts-ignore
-    document.getElementById('fprToggle').checked = items.fprToggle;
-    // @ts-ignore
-    document.getElementById('wpkgToggle').checked = items.wpkgToggle;
+    (document.getElementById('weight') as HTMLInputElement).value = String(
+      items.weight,
+    );
+    (document.getElementById('cp') as HTMLInputElement).value = String(
+      items.cp,
+    );
+    (document.getElementById(
+      'strideLengthToggle',
+    ) as HTMLInputElement).checked = items.strideLengthToggle;
+    (document.getElementById('cpToggle') as HTMLInputElement).checked =
+      items.cpToggle;
+    (document.getElementById('fprToggle') as HTMLInputElement).checked =
+      items.fprToggle;
+    (document.getElementById('wpkgToggle') as HTMLInputElement).checked =
+      items.wpkgToggle;
   });
 }
 document.addEventListener('DOMContentLoaded', restore_options);

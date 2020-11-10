@@ -1,9 +1,12 @@
 import type {
   REData,
-  LapData,
   CriticalPower,
   FormPower,
   StoredSettings,
+  Seconds,
+  Meters,
+  Watts,
+  Cadence,
 } from './types';
 type Stat = [boolean, string, string, string, string];
 
@@ -17,8 +20,6 @@ let wpkgToggle = true;
 
 let observers: (() => void)[] = [];
 
-// const lapSelector = '.sc-fzXfQW.ldoxsf';
-// const lapCellSelector = '.common__TableCell-sc-548q8v-0.jQjFcA';
 const storageDefaults: StoredSettings = {
   weight: 70,
   cp: 0,
@@ -27,10 +28,7 @@ const storageDefaults: StoredSettings = {
   fprToggle: true,
   wpkgToggle: true,
 };
-const debounceEvent = (
-  callback: () => void,
-  delay = 100,
-) => () => {
+const debounceEvent = (callback: () => void, delay = 100) => () => {
   let interval: NodeJS.Timeout;
   clearTimeout(interval!);
   interval = setTimeout(() => {
@@ -38,20 +36,33 @@ const debounceEvent = (
   }, delay);
 };
 const setupSelectionRE = debounceEvent(_setupSelectionRE);
+const formatRE = (n: number) => n.toFixed(3);
+const formatStrLen = (n: number) => n.toFixed(2);
 
 // Functions
 
-function calcREData(
-  criticalPower: CriticalPower,
-  formPower: FormPower,
-  weight: number,
-  [time, meters, watts, cadence]: LapData,
-): REData {
-  const cpp = Math.floor((watts / criticalPower) * 100);
-  const strideLength = ((meters / time) * 60) / cadence;
-  const re = meters / time / (watts / weight);
-  const wkg = watts / weight;
-  const fpr = formPower / watts;
+type CalcInput = {
+  criticalPower: CriticalPower;
+  formPower: FormPower;
+  weight: number;
+  lapTime: Seconds;
+  meters: Meters;
+  lapWatts: Watts;
+  cadence: Cadence;
+};
+function calcREData({
+  lapWatts,
+  criticalPower,
+  formPower,
+  meters,
+  cadence,
+  lapTime,
+}: CalcInput): REData {
+  const cpp = Math.floor((lapWatts / criticalPower) * 100);
+  const strideLength = ((meters / lapTime) * 60) / cadence;
+  const re = meters / lapTime / (lapWatts / weight);
+  const wkg = lapWatts / weight;
+  const fpr = formPower / lapWatts;
 
   return [re, cpp, strideLength, wkg, fpr];
 }
@@ -87,14 +98,94 @@ function addOrCreateMainStatsNode(
     addMainStatsNode(label, value, valueClass);
   }
 }
+function createLapHeadersNode(label: string) {
+  const headerRowSelector = '.sc-fzXfQV.iDcKYo';
+  const headerTemplateRow = headerRowSelector + ' > div:last-child';
+
+  const templateNode = document
+    .querySelector<HTMLDivElement>(headerTemplateRow)!
+    .cloneNode(true) as HTMLDivElement;
+  const labelDiv = templateNode.querySelector('div')!;
+  labelDiv.innerText = label;
+  document.querySelector(headerRowSelector)!.appendChild(templateNode);
+}
+function incrementGrid(n: number) {
+  const selector = '.KSDOe';
+  document
+    .querySelector(selector)!
+    .setAttribute(
+      'style',
+      'padding-bottom: 1rem;' +
+        'background: transparent none repeat scroll 0% 0%;' +
+        `grid-template-columns: repeat(${n}, auto);`,
+    );
+}
+function createValueNodes() {
+  incrementGrid(14 + Number(cpToggle) + Number(strideLengthToggle));
+  const headerRowSelector = '.sc-fzXfQW.ldoxsf';
+  const valueSelector = '.common__TableCell-sc-548q8v-0';
+
+  document.querySelectorAll<HTMLDivElement>(headerRowSelector).forEach(n => {
+    const template = n.querySelector<HTMLDivElement>(
+      ':scope > div:last-child',
+    )!;
+    const valueCells = n.querySelectorAll(':scope ' + valueSelector)!;
+
+    const [
+      ,
+      rawMovingTime,
+      rawDistance,
+      rawPower,
+      ,
+      rawCadence,
+      rawFormPower,
+    ] = [...valueCells].map(n => n.innerHTML);
+    // [ "1", "29:57", "5.64 km", "254 W", "5:18 /km", "185 spm", "138 bpm", "71 W", … ]
+    const [
+      lapTime,
+      meters,
+      lapWatts,
+      cadence,
+      formPower,
+    ] = extractMetricsFromText([
+      rawPower,
+      rawCadence,
+      rawFormPower,
+      rawMovingTime,
+      rawDistance,
+    ]);
+    const [RE, cpp, strideLength] = calcREData({
+      lapTime,
+      meters,
+      lapWatts,
+      cadence,
+      formPower,
+      weight,
+      criticalPower: cp,
+    });
+
+    const makeCell = (value: number, formatter: (s: number) => string) => {
+      const templateNode = template.cloneNode(true) as HTMLDivElement;
+      const labelDiv = templateNode.querySelector('div')!;
+      labelDiv.innerText = formatter(value);
+      // Preserve click behavior in new cell
+      templateNode.addEventListener('click', () => template.click());
+      n.appendChild(templateNode);
+    };
+
+    makeCell(RE, formatRE);
+    cpToggle && makeCell(cpp, n => String(n));
+    strideLengthToggle && makeCell(strideLength, formatStrLen);
+  });
+}
 
 //get weight/cp from browser settings
 browser.storage.sync
   .get(storageDefaults)
   // @ts-ignore
   .then((items: StoredSettings) => {
-    weight = items.weight;
-    cpRE = items.cp;
+    weight = +items.weight;
+    cpRE = +items.cp;
     strideLengthToggle = items.strideLengthToggle;
     cpToggle = items.cpToggle;
     fprToggle = items.fprToggle;
@@ -114,7 +205,7 @@ function getSelectionMetrics() {
   const topStats = document.querySelectorAll(runContainerEntrySelector);
   const [powerNode, , , cadenceNode, , formPowerNode] = [...coloredStats];
   // Sample output:
-  // [ "251 W", "5:26 /km", "142 m", "183 spm", "138 bpm", "71 W", "255 ms", "12.5 kN/m", "5.87 cm", "2 %" ]
+  // [ "251 W", "5:26 /km", "142 m", "183 spm", "138 bpm", "71 W", ... ]
 
   const [movingTimeNode, distanceNode] = [...topStats];
   const trackedNodes = [
@@ -123,14 +214,18 @@ function getSelectionMetrics() {
     formPowerNode,
     movingTimeNode,
     distanceNode,
-  ];
-  const [
-    rawPower,
-    rawCadence,
-    rawFormPower,
-    rawMovingTime,
-    rawDistance,
-  ] = trackedNodes.map(n => n.innerHTML);
+  ] as const;
+  const rawValues = trackedNodes.map(n => n.innerHTML);
+
+  return [extractMetricsFromText(rawValues), trackedNodes] as const;
+}
+function extractMetricsFromText([
+  rawPower,
+  rawCadence,
+  rawFormPower,
+  rawMovingTime,
+  rawDistance,
+]: string[]) {
   const watts = parseFloat(rawPower.replace('Power', '').replace(' W', ''));
   const cadence = parseFloat(
     rawCadence.replace('Cadence', '').replace(' spm', ''),
@@ -159,42 +254,49 @@ function getSelectionMetrics() {
   } else {
     movingTime = +split[0];
   }
-
-  return [
-    [movingTime, meters, watts, cadence, formPower],
-    trackedNodes,
-  ] as const;
+  return [movingTime, meters, watts, cadence, formPower] as const;
 }
 
 function detection() {
   // wait for fullscreenmodal to exist before running all RE extension setup
   const runContainerSelector = '.AnalysisPage__AnalysisContainer-sc-3lhrby-0';
   waitForElement(runContainerSelector, () => {
+    getCPForRun();
+    setupLapData();
     setupSelectionRE();
     waitForElementNotExist(runContainerSelector, detection);
   });
 }
 
+function setupLapData() {
+  createLapHeadersNode('RE');
+  cpToggle && createLapHeadersNode('CP%');
+  strideLengthToggle && createLapHeadersNode('Str Len');
+  createValueNodes();
+}
+
 // do all work to display extension data in at the top of run
 function _setupSelectionRE() {
   observers.forEach(o => o());
-  getCPForRun();
   const [
-    [movingTime, meters, watts, cadence, formPower],
+    [lapTime, meters, lapWatts, cadence, formPower],
     trackedNodes,
   ] = getSelectionMetrics();
 
-  const [RE, cpp, strideLength, WPkg, fpr] = calcREData(cp, formPower, weight, [
-    movingTime,
+  const [RE, cpp, strideLength, WPkg, fpr] = calcREData({
+    criticalPower: cp,
+    formPower,
+    weight,
+    lapTime,
     meters,
-    watts,
+    lapWatts,
     cadence,
-  ]);
+  });
   const reStat: Stat = [
     !!RE,
     '.reValueSelectionRE',
     'RE',
-    RE.toFixed(3),
+    formatRE(RE),
     'reValueSelectionRE',
   ];
   const cppStat: Stat = [
@@ -208,7 +310,7 @@ function _setupSelectionRE() {
     !!strideLength && strideLengthToggle,
     '.lenValueSelectionRE',
     'Str Len',
-    `${strideLength.toFixed(2)} m`,
+    `${formatStrLen(strideLength)} m`,
     'lenValueSelectionRE',
   ];
   const wpkgStat: Stat = [
@@ -226,8 +328,6 @@ function _setupSelectionRE() {
     'fprValueSelectionRE',
   ];
   const stats: Stat[] = [reStat, cppStat, strideStat, wpkgStat, fprStat];
-  console.log(stats);
-
   stats.forEach(([on, ...rest]) => on && addOrCreateMainStatsNode(...rest));
   observers = trackedNodes.map(n => onElementChange(n, setupSelectionRE));
 }
@@ -281,11 +381,7 @@ function waitForElementNotExist(selector: string, callBack: () => void) {
 }
 
 function onElementChange(targetNode: Node, callBack: () => void) {
-  console.log('watching', targetNode);
-  const observer = new MutationObserver(() => {
-    console.log('Change!', targetNode);
-    callBack();
-  });
+  const observer = new MutationObserver(callBack);
 
   // start observing
   const config = {
