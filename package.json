@@ -1,0 +1,34 @@
+{
+  "name": "re-in-stryd",
+  "version": "1.5.0",
+  "description": "RE in Stryd Web Firefox extension",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "prod": "(tsc || true) && web-ext build -i \"src\" scripts/types.js -s firefox",
+    "watch": "tsc -w"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aethelz/REFirefoxExtension.git"
+  },
+  "author": "aethelz",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/aethelz/REFirefoxExtension/issues"
+  },
+  "homepage": "https://github.com/aethelz/REFirefoxExtension#readme",
+  "dependencies": {
+    "typescript": "^3.9.7"
+  },
+  "devDependencies": {
+    "@types/firefox-webext-browser": "^78.0.1",
+    "@typescript-eslint/eslint-plugin": "^3.9.0",
+    "@typescript-eslint/parser": "^3.9.0",
+    "eslint": "^7.6.0",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-plugin-prettier": "^3.1.4",
+    "prettier": "^2.0.5",
+    "web-ext": "^5.0.0"
+  }
+}

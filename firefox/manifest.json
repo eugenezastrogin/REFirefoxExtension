@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "RE in Stryd",
-  "version": "1.0",
+  "version": "1.5",
 
   "description": "Adds RE and CP to Stryd Power Center",
 
@@ -22,7 +22,7 @@
     {
       "matches": ["https://www.stryd.com/powercenter*"],
       "all_frames": true,
-      "js": ["scripts/jquery-3.5.1.slim.min.js", "scripts/content.js"]
+      "js": ["scripts/content.js"]
     }
   ],
 
