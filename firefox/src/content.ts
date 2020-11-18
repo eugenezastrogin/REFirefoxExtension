@@ -73,6 +73,7 @@ function addOrCreateMainStatsNode(
   value: string,
   valueClass = '',
 ) {
+  // upper stats wrapper
   const mainStatsContainerSelector =
     '.ActivitySelectionInfo__SelectionInfoContainer-sc-3hapn2-0 > div';
   const mainStatsContainerEntrySelector = mainStatsContainerSelector + ' > div';
@@ -99,7 +100,8 @@ function addOrCreateMainStatsNode(
   }
 }
 function createLapHeadersNode(label: string) {
-  const headerRowSelector = '.sc-fzXfQV.iDcKYo';
+  // Lap data header row selector
+  const headerRowSelector = '.sc-bsatbK.ePCIZd';
   const headerTemplateRow = headerRowSelector + ' > div:last-child';
 
   const templateNode = document
@@ -110,7 +112,8 @@ function createLapHeadersNode(label: string) {
   document.querySelector(headerRowSelector)!.appendChild(templateNode);
 }
 function incrementGrid(n: number) {
-  const selector = '.KSDOe';
+  // Lap data wrapper with grid properties
+  const selector = '.bCJCDh';
   document
     .querySelector(selector)!
     .setAttribute(
@@ -122,8 +125,10 @@ function incrementGrid(n: number) {
 }
 function createValueNodes() {
   incrementGrid(14 + Number(cpToggle) + Number(strideLengthToggle));
-  const headerRowSelector = '.sc-fzXfQW.ldoxsf';
-  const valueSelector = '.common__TableCell-sc-548q8v-0';
+  // Lap data row selector (sans header row)
+  const headerRowSelector = '.sc-gIvpCV.cPTLmX';
+  // Inner value of lap data cell
+  const valueSelector = '.common__TableCell-sc-1ijhfg1-0';
 
   document.querySelectorAll<HTMLDivElement>(headerRowSelector).forEach(n => {
     const template = n.querySelector<HTMLDivElement>(
@@ -197,10 +202,12 @@ browser.storage.sync
   });
 
 function getSelectionMetrics() {
+  // Inner selector of all ribboned selection values above lap data
   const selectionDataSelector =
-    '.MetricDisplayChartToggle__DataValue-sc-1ht865t-2.huoJmS';
+    '.MetricDisplayChartToggle__DataValue-sc-1ht865t-2.cuTfBy';
+  // Inner selector of all upper selection values
   const runContainerEntrySelector =
-    '.ActivitySelectionInfo__StatText-sc-3hapn2-3.jAjnpu';
+    '.ActivitySelectionInfo__StatText-sc-3hapn2-3.klfEpA';
   const coloredStats = document.querySelectorAll(selectionDataSelector);
   const topStats = document.querySelectorAll(runContainerEntrySelector);
   const [powerNode, , , cadenceNode, , formPowerNode] = [...coloredStats];
@@ -333,11 +340,12 @@ function _setupSelectionRE() {
 }
 
 function getCPForRun() {
-  const cpSelector = '.label-line-text';
+  // Critical power node
+  const cpSelector = '.ProfileCardProfile__PowerText-sc-1k5x48q-6.iqIGjr';
   if (cpRE === 0) {
     const rawBrowserValue = document
       .querySelector<SVGTextElement>(cpSelector)!
-      .innerHTML.replace('CP ', '')
+      .innerText
       .replace(' W', '');
     cp = parseInt(rawBrowserValue);
   } else {
