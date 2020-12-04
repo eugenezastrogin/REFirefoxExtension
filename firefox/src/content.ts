@@ -341,11 +341,12 @@ function _setupSelectionRE() {
 
 function getCPForRun() {
   // Critical power node
-  const cpSelector = '.ProfileCardProfile__PowerText-sc-1k5x48q-6.iqIGjr';
+  const cpSelector = '.label-line-text';
   if (cpRE === 0) {
     const rawBrowserValue = document
       .querySelector<SVGTextElement>(cpSelector)!
-      .innerText
+      .innerHTML
+      .replace('CP ', '')
       .replace(' W', '');
     cp = parseInt(rawBrowserValue);
   } else {
