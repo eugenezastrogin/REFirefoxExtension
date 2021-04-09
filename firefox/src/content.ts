@@ -101,7 +101,7 @@ function addOrCreateMainStatsNode(
 }
 function createLapHeadersNode(label: string) {
   // Lap data header row selector
-  const headerRowSelector = '.sc-bsatbK.ePCIZd';
+  const headerRowSelector = '.sc-bsatbK.cRQLME';
   const headerTemplateRow = headerRowSelector + ' > div:last-child';
 
   const templateNode = document
