@@ -74,6 +74,7 @@ function addOrCreateMainStatsNode(
   valueClass = '',
 ) {
   // upper stats wrapper
+  // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[1]/div[2]/div/div
   const mainStatsContainerSelector =
     '.ActivitySelectionInfo__SelectionInfoContainer-sc-3hapn2-0 > div';
   const mainStatsContainerEntrySelector = mainStatsContainerSelector + ' > div';
@@ -101,6 +102,7 @@ function addOrCreateMainStatsNode(
 }
 function createLapHeadersNode(label: string) {
   // Lap data header row selector
+  // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/div/div[1]
   const headerRowSelector = '.sc-bsatbK.cRQLME';
   const headerTemplateRow = headerRowSelector + ' > div:last-child';
 
@@ -113,6 +115,7 @@ function createLapHeadersNode(label: string) {
 }
 function incrementGrid(n: number) {
   // Lap data wrapper with grid properties
+  // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/div
   const selector = '.bCJCDh';
   document
     .querySelector(selector)!
@@ -126,6 +129,7 @@ function incrementGrid(n: number) {
 function createValueNodes() {
   incrementGrid(14 + Number(cpToggle) + Number(strideLengthToggle));
   // Lap data row selector (sans header row)
+  // FIRST Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/div/div[1]
   const headerRowSelector = '.sc-gIvpCV.cPTLmX';
   // Inner value of lap data cell
   const valueSelector = '.common__TableCell-sc-1ijhfg1-0';
@@ -203,9 +207,11 @@ browser.storage.sync
 
 function getSelectionMetrics() {
   // Inner selector of all ribboned selection values above lap data
+  // FIRST Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[1]/div[1]/p[2]
   const selectionDataSelector =
     '.MetricDisplayChartToggle__DataValue-sc-1ht865t-2.cuTfBy';
   // Inner selector of all upper selection values
+  // FIRST Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[1]/div[2]/div/div/div[1]/p[1]
   const runContainerEntrySelector =
     '.ActivitySelectionInfo__StatText-sc-3hapn2-3.klfEpA';
   const coloredStats = document.querySelectorAll(selectionDataSelector);
@@ -266,6 +272,7 @@ function extractMetricsFromText([
 
 function detection() {
   // wait for fullscreenmodal to exist before running all RE extension setup
+  // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div
   const runContainerSelector = '.AnalysisPage__AnalysisContainer-sc-3lhrby-0';
   waitForElement(runContainerSelector, () => {
     getCPForRun();
@@ -341,6 +348,7 @@ function _setupSelectionRE() {
 
 function getCPForRun() {
   // Critical power node
+  // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[1]/div[3]/div[1]/div/svg/g[1]/text
   const cpSelector = '.label-line-text';
   if (cpRE === 0) {
     const rawBrowserValue = document
