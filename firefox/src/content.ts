@@ -76,7 +76,7 @@ function addOrCreateMainStatsNode(
   // upper stats wrapper
   // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[1]/div[2]/div/div
   const mainStatsContainerSelector =
-    '.ActivitySelectionInfo__SelectionInfoContainer-sc-3hapn2-0 > div';
+    '.ActivitySelectionInfo__SelectionInfoContainer-sc-12ooj8n-0 > div';
   const mainStatsContainerEntrySelector = mainStatsContainerSelector + ' > div';
 
   function addMainStatsNode(label: string, value: string, valueClass = '') {
@@ -103,7 +103,7 @@ function addOrCreateMainStatsNode(
 function createLapHeadersNode(label: string) {
   // Lap data header row selector
   // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/div/div[1]
-  const headerRowSelector = '.sc-bsatbK.cRQLME';
+  const headerRowSelector = '.sc-bsipwG.jElVth';
   const headerTemplateRow = headerRowSelector + ' > div:last-child';
 
   const templateNode = document
@@ -116,7 +116,7 @@ function createLapHeadersNode(label: string) {
 function incrementGrid(n: number) {
   // Lap data wrapper with grid properties
   // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/div
-  const selector = '.bCJCDh';
+  const selector = '.SSXqm';
   document
     .querySelector(selector)!
     .setAttribute(
@@ -129,10 +129,10 @@ function incrementGrid(n: number) {
 function createValueNodes() {
   incrementGrid(14 + Number(cpToggle) + Number(strideLengthToggle));
   // Lap data row selector (sans header row)
-  // FIRST Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/div/div[1]
-  const headerRowSelector = '.sc-gIvpCV.cPTLmX';
+  // FIRST Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/div/div[2]
+  const headerRowSelector = '.sc-gInthZ.lgvHAY';
   // Inner value of lap data cell
-  const valueSelector = '.common__TableCell-sc-1ijhfg1-0';
+  const valueSelector = '.common__TableCell-sc-j5bzkk-0';
 
   document.querySelectorAll<HTMLDivElement>(headerRowSelector).forEach(n => {
     const template = n.querySelector<HTMLDivElement>(
@@ -209,11 +209,11 @@ function getSelectionMetrics() {
   // Inner selector of all ribboned selection values above lap data
   // FIRST Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[1]/div[1]/p[2]
   const selectionDataSelector =
-    '.MetricDisplayChartToggle__DataValue-sc-1ht865t-2.cuTfBy';
+    '.MetricDisplayChartToggle__DataValue-sc-zk97bb-2.fdcKXC';
   // Inner selector of all upper selection values
   // FIRST Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[1]/div[2]/div/div/div[1]/p[1]
   const runContainerEntrySelector =
-    '.ActivitySelectionInfo__StatText-sc-3hapn2-3.klfEpA';
+    '.ActivitySelectionInfo__StatText-sc-12ooj8n-3.epyYkO';
   const coloredStats = document.querySelectorAll(selectionDataSelector);
   const topStats = document.querySelectorAll(runContainerEntrySelector);
   const [powerNode, , , cadenceNode, , formPowerNode] = [...coloredStats];
@@ -273,7 +273,7 @@ function extractMetricsFromText([
 function detection() {
   // wait for fullscreenmodal to exist before running all RE extension setup
   // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div
-  const runContainerSelector = '.AnalysisPage__AnalysisContainer-sc-3lhrby-0';
+  const runContainerSelector = '.AnalysisPage__AnalysisContainer-sc-19ydkiy-0';
   waitForElement(runContainerSelector, () => {
     getCPForRun();
     setupLapData();
