@@ -29,9 +29,9 @@ const storageDefaults: StoredSettings = {
   wpkgToggle: true,
 };
 const debounceEvent = (callback: () => void, delay = 100) => () => {
-  let interval: NodeJS.Timeout;
-  clearTimeout(interval!);
-  interval = setTimeout(() => {
+  let interval: number;
+  window.clearTimeout(interval!);
+  interval = window.setTimeout(() => {
     callback();
   }, delay);
 };
@@ -76,14 +76,14 @@ function addOrCreateMainStatsNode(
   // upper stats wrapper
   // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[1]/div[2]/div/div
   const mainStatsContainerSelector =
-    '.ActivitySelectionInfo__SelectionInfoContainer-sc-12ooj8n-0 > div';
+    '.ActivitySelectionInfo__SelectionInfoContainer-sc-8kzqsv-0 > div';
   const mainStatsContainerEntrySelector = mainStatsContainerSelector + ' > div';
 
   function addMainStatsNode(label: string, value: string, valueClass = '') {
     const templateNode = document
       .querySelector<HTMLDivElement>(mainStatsContainerEntrySelector)!
       .cloneNode(true) as HTMLDivElement;
-    const [valueP, labelP] = templateNode.querySelectorAll('p');
+    const [labelP, valueP] = templateNode.querySelectorAll('p');
     valueP.innerText = value;
     valueP.classList.add(valueClass);
     labelP.innerText = label;
@@ -132,7 +132,7 @@ function createValueNodes() {
   // FIRST Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[3]/div/div[2]
   const headerRowSelector = '.sc-gInthZ.lgvHAY';
   // Inner value of lap data cell
-  const valueSelector = '.common__TableCell-sc-j5bzkk-0';
+  const valueSelector = '.common__TableCell-sc-fo2vwo-0';
 
   document.querySelectorAll<HTMLDivElement>(headerRowSelector).forEach(n => {
     const template = n.querySelector<HTMLDivElement>(
@@ -209,11 +209,11 @@ function getSelectionMetrics() {
   // Inner selector of all ribboned selection values above lap data
   // FIRST Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[2]/div[1]/div[1]/p[2]
   const selectionDataSelector =
-    '.MetricDisplayChartToggle__DataValue-sc-zk97bb-2.fdcKXC';
+    '.MetricDisplayChartToggle__DataValue-sc-194dsec-2.kJZsEk';
   // Inner selector of all upper selection values
   // FIRST Xpath /html/body/div[6]/div/div/div[2]/div[2]/div/div[1]/div[1]/div[2]/div/div/div[1]/p[1]
   const runContainerEntrySelector =
-    '.ActivitySelectionInfo__StatText-sc-12ooj8n-3.epyYkO';
+    '.ActivitySelectionInfo__StatText-sc-8kzqsv-3.eJKsCn';
   const coloredStats = document.querySelectorAll(selectionDataSelector);
   const topStats = document.querySelectorAll(runContainerEntrySelector);
   const [powerNode, , , cadenceNode, , formPowerNode] = [...coloredStats];
@@ -272,8 +272,8 @@ function extractMetricsFromText([
 
 function detection() {
   // wait for fullscreenmodal to exist before running all RE extension setup
-  // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div
-  const runContainerSelector = '.AnalysisPage__AnalysisContainer-sc-19ydkiy-0';
+  // Xpath /html/body/div[6]/div/div/div[2]/div[2]/div[1]/div/div[1]/div[1]
+  const runContainerSelector = '.ActivitySummary__SummaryContainer-sc-1pxib3r-0';
   waitForElement(runContainerSelector, () => {
     getCPForRun();
     setupLapData();
@@ -367,8 +367,8 @@ function waitForElement(selector: string, callBack: () => void) {
   const observer = new MutationObserver(function (_, me) {
     const el = document.querySelector(selector);
     if (el) {
-      callBack();
       me.disconnect(); // stop observing
+      callBack();
       return;
     }
   });
