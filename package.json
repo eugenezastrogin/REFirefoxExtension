@@ -1,12 +1,13 @@
 {
   "name": "re-in-stryd",
-  "version": "1.8.2",
+  "version": "1.8.3",
   "description": "RE in Stryd Web Firefox extension",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
     "prod": "(tsc || true) && web-ext build -i \"src\" scripts/types.js -s firefox",
-    "watch": "tsc -w"
+    "watch": "tsc -w",    
+    "dev": "web-ext run --source-dir ./firefox/"
   },
   "repository": {
     "type": "git",
